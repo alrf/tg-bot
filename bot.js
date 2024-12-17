@@ -258,7 +258,8 @@ bot.command('start', (ctx) => {
 bot.on("chat_member", (ctx) => {
   const chatMember = ctx.update?.chat_member;
   const userId = chatMember?.new_chat_member?.user?.id;
-  const userName = chatMember?.new_chat_member?.user?.first_name;
+  const userFirstName = chatMember?.new_chat_member?.user?.first_name;
+  const userUsername = chatMember?.new_chat_member?.user?.username ?? 'Unknown';
   const userStatus = chatMember?.new_chat_member?.status;
   const userChatId = chatMember?.chat?.id;
 
@@ -268,12 +269,12 @@ bot.on("chat_member", (ctx) => {
 
     if (bannedUsers.includes(userId)) {
       ctx.telegram.kickChatMember(userChatId, userId);
-      ctx.reply(`User:${userName} (Id:${userId}) has been banned and marked as Scam.`);
+      ctx.reply(`User:${userFirstName} (Id:${userId},Username:${userUsername}) has been banned and marked as Scam.`);
       console.log("\n===========");
-      console.log(`User:${userName} (Id:${userId},Status:${userStatus}) has been banned and marked as Scam in the ${userChatId} chat.\nctx.message: ${JSON.stringify(chatMember)}`);
+      console.log(`User:${userFirstName} (Id:${userId},Username:${userUsername},Status:${userStatus}) has been banned and marked as Scam in the ${userChatId} chat.\nctx.message: ${JSON.stringify(chatMember)}`);
     } else{
       console.log("\n===========");
-      console.log(`User:${userName} (Id:${userId},Status:${userStatus}) added to the ${userChatId} chat.\nctx.message: ${JSON.stringify(chatMember)}`);
+      console.log(`User:${userFirstName} (Id:${userId},Username:${userUsername},Status:${userStatus}) added to the ${userChatId} chat.\nctx.message: ${JSON.stringify(chatMember)}`);
     }
 
   }
