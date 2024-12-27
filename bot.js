@@ -2,23 +2,28 @@ const { Telegraf } = require('telegraf');
 const fs = require('fs');
 require('dotenv').config();
 const https = require('https');
+const InMemoryCache = require('./inmemorycache');
+const cache = new InMemoryCache({ defaultTtl: '24h', cleanupInterval: '10min' });
 
-const bot = new Telegraf(process.env.BOT_TOKEN);
 
 if (!process.env.BOT_TOKEN) throw new Error('"BOT_TOKEN" env var is required!');
 if (!process.env.CHAT_ID) throw new Error('"CHAT_ID" env var is required!');
 if (!process.env.ADMIN_IDS) throw new Error('"ADMIN_IDS" env var is required!');
 
+
 let bannedUsers;
+const bot = new Telegraf(process.env.BOT_TOKEN);
 const chatId = process.env.CHAT_ID; // id of your group/channel
 const adminUsers = process.env.ADMIN_IDS;
 
 
+console.log(getDT());
 
-function getDT() {
+
+function getDT(style = 'medium') {
   return new Intl.DateTimeFormat('en-GB', {
-    dateStyle: 'medium',
-    timeStyle: 'medium',
+    dateStyle: style,
+    timeStyle: style,
     timeZone: 'Europe/Vienna',
   }).format(new Date());
 }
@@ -28,6 +33,8 @@ function isAdmin(IdOfUser, ctx) {
   return new Promise((resolve, reject) => {
     ctx.telegram.getChatMember(chatId, IdOfUser).then((user) => {
       if (!adminUsers.includes(IdOfUser)) {
+        console.log("\n===========");
+        console.log('Not Admin user:', getDT(), IdOfUser);
         reject("You are not allowed to be here.");
       }
       // Check if user is admin (or creator)
@@ -49,10 +56,9 @@ function checkUserId(userId, ctx) {
 }
 
 
-function lolsBotCheck(userId, allowReply, allowBan, ctx) {
+function lolsBotCheck(userId, allowReply = false, allowBan = false, ctx) {
   https.get(`https://api.lols.bot/account?id=${userId}`, res => {
     let data = [];
-    const headerDate = res.headers && res.headers.date ? res.headers.date : 'no response date';
 
     res.on('data', chunk => {
       data.push(chunk);
@@ -63,9 +69,12 @@ function lolsBotCheck(userId, allowReply, allowBan, ctx) {
 
       if (res?.statusCode === 200 && user.ok === true) {
 
+        userId = user?.user_id ?? 0; // always get as number
         const userBanned = user?.banned ?? false;
         const userSpamFactor = user?.spam_factor ?? 0;
         const userScammer = user?.scammer ?? false;
+        const userWhen = user?.when ?? '';
+        const cacheGet = cache.get(userId);
 
         // if (Math.round(userSpamFactor) < 70 && userScammer === false) { userBanned = false; }
 
@@ -75,9 +84,11 @@ function lolsBotCheck(userId, allowReply, allowBan, ctx) {
           ctx.reply(`LolsBot check: User:${userId} Banned:${userBanned} SpamFactor:${userSpamFactor} Scammer:${userScammer}`);
         }
 
-        if (allowBan === true && userBanned === true) { // Ban both Scammer & Spammer
+        // Ban both Scammer & Spammer right away
+        if (allowBan === true && userBanned === true) {
           new Promise((resolve, reject) => {
-            ctx.telegram.kickChatMember(chatId, userId).then((result) => {
+            ctx.telegram.kickChatMember(chatId, userId)
+            .then((result) => {
               resolve(result === true);
             })
             .catch((error) => {
@@ -86,10 +97,37 @@ function lolsBotCheck(userId, allowReply, allowBan, ctx) {
           })
           .then((result) => { // Promise resolved
             console.log(`LolsBot ban: Result:${result} User:${userId} Banned:${userBanned} SpamFactor:${userSpamFactor} Scammer:${userScammer}`);
+
+            // If user is in cache - update it
+            if (cacheGet) {
+              console.log('LolsBot, cacheGet:', getDT(), userId, cache.keys(), cacheGet, cache.getTtl(userId));
+              let obj = { "added": cacheGet.added, "when": userWhen, "scammer": userScammer, "spammer": userBanned };
+              success = cache.update(userId, obj);
+              if (success) {
+                console.log('LolsBot, cacheSet:', getDT(), userId, cache.keys(), cache.get(userId), cache.getTtl(userId));
+              }
+              // console.log('LolsBot, cacheKeys1:', getDT(), cache.keys());
+            }
+
           })
           .catch((error) => { // Promise rejected
             console.error(`LolsBot ban error: User:${userId} Banned:${userBanned} SpamFactor:${userSpamFactor} Scammer:${userScammer} Error:${JSON.stringify(error)}`);
           });
+        }
+
+        // User is not banned in Lols Anti Spam, add it to the cache for 24 hours
+        if (userBanned === false) {
+          if (!cacheGet) { // If user is NOT in cache - add it
+            let obj = { "added": getDT('long'), "when": "", "scammer": false, "spammer": false };
+            success = cache.set(userId, obj, '24h');
+            if (success) {
+              console.log('Cache OK', getDT(), userId, cache.keys(), cache.get(userId));
+            } else {
+              console.error('Cache issue', getDT(), userId);
+            }
+          }
+          // console.log('LolsBot, cacheKeys2:', getDT(), cache.keys());
+          // Otherwise doing nothing (user cache will be cleared in 24 hours)
         }
 
       }
@@ -222,6 +260,48 @@ bot.command('checkuser', (ctx) => {
 });
 
 
+bot.command('cachekeys', (ctx) => {
+  isAdmin(ctx.message.from.id, ctx).then((result) => {
+    if (result) {
+      ctx.reply(`Keys: ${cache.keys().toString()}`);
+    } else {
+      ctx.reply(`You are not allowed to use cachekeys.`);
+    }
+  })
+  .catch((error) => {
+    ctx.reply("Error: " + JSON.stringify(error));
+  });
+});
+
+
+bot.command('cachevalues', (ctx) => {
+  isAdmin(ctx.message.from.id, ctx).then((result) => {
+    if (result) {
+      ctx.reply(`Values: ${JSON.stringify(cache.values())}`);
+    } else {
+      ctx.reply(`You are not allowed to use cachevalues.`);
+    }
+  })
+  .catch((error) => {
+    ctx.reply("Error: " + JSON.stringify(error));
+  });
+});
+
+
+bot.command('getcache', (ctx) => {
+  isAdmin(ctx.message.from.id, ctx).then((result) => {
+    if (result) {
+      ctx.reply(`Cache: ${cache.getcache()}`);
+    } else {
+      ctx.reply(`You are not allowed to use getcache.`);
+    }
+  })
+  .catch((error) => {
+    ctx.reply("Error: " + JSON.stringify(error));
+  });
+});
+
+
 bot.command('list', (ctx) => {
   isAdmin(ctx.message.from.id, ctx).then((result) => {
     if (result) {
@@ -252,6 +332,24 @@ bot.command('start', (ctx) => {
   .catch((error) => {
     ctx.reply("Error: " + JSON.stringify(error));
   });
+});
+
+
+bot.on('message', (ctx) => {
+  // if (ctx.message.left_chat_member || ctx.message.new_chat_member) { return false; }
+
+  const userId = ctx.message.from.id;
+
+  value = cache.get(userId);
+  if (value){ // there's a value in the cache for the user (i.e. it was recently added to the cache)
+    if (value.scammer === true || value.spammer === true) { // the user has already been processed
+      return false;
+    }
+    console.log('Message, Get:', getDT(), userId, cache.keys(), value, cache.getTtl(userId));
+    lolsBotCheck(userId, false, true, ctx);
+  }
+  console.log("\n===========");
+  console.log('Message, cacheKeys:', getDT(), cache.keys());
 });
 
 
