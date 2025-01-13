@@ -3,7 +3,7 @@ const fs = require('fs');
 require('dotenv').config();
 const https = require('https');
 const InMemoryCache = require('./inmemorycache');
-const cache = new InMemoryCache({ defaultTtl: '24h', cleanupInterval: '10min' });
+const cache = new InMemoryCache({ defaultTtl: '60h', cleanupInterval: '10min' });
 
 
 if (!process.env.BOT_TOKEN) throw new Error('"BOT_TOKEN" env var is required!');
@@ -73,6 +73,7 @@ function lolsBotCheck(userId, allowReply = false, allowBan = false, ctx) {
         const userBanned = user?.banned ?? false;
         const userSpamFactor = user?.spam_factor ?? 0;
         const userScammer = user?.scammer ?? false;
+        const userScamRsAlert = user?.scamrsalert ?? 0;
         const userWhen = user?.when ?? '';
         const cacheGet = cache.get(userId);
 
@@ -82,6 +83,18 @@ function lolsBotCheck(userId, allowReply = false, allowBan = false, ctx) {
 
         if (allowReply) {
           ctx.reply(`LolsBot check: User:${userId} Banned:${userBanned} SpamFactor:${userSpamFactor} Scammer:${userScammer}`);
+        }
+
+        // Notify group about Scammer
+        if (userScammer) {
+          const from = ctx.update?.message?.from ?? ctx.update?.chat_member?.from;
+          const fromId = from.id ?? '';
+          let fromFirstName = from.first_name ?? '';
+          const fromUsername = from.username ?? '';
+          if (fromUsername) {
+            fromFirstName = `${fromFirstName}\n@${fromUsername}`;
+          }
+          ctx.telegram.sendMessage(chatId, `<b>Внимание, мошенник!</b>\n${fromFirstName}\n\nИнформация:\nhttps://t.me/lolsbotcatcherbot?start=${fromId}\nhttps://t.me/scamrsalert/${userScamRsAlert}`, { parse_mode: "HTML", disable_web_page_preview: true });
         }
 
         // Ban both Scammer & Spammer right away
