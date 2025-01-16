@@ -2,9 +2,7 @@ module.exports = class InMemoryCache {
   constructor({ defaultTtl = '1h', cleanupInterval = '1h' } = {}) {
 
     this.cache = new Map();
-    
-    // Convert strings with time in milliseconds
-    this.defaultTtl = this.parseTime(defaultTtl);  
+    this.defaultTtl = defaultTtl;
     this.cleanupInterval = this.parseTime(cleanupInterval); // Clear interval in milliseconds
 
     // Automatically clear cache at specified interval

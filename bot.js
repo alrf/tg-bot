@@ -17,9 +17,6 @@ const chatId = process.env.CHAT_ID; // id of your group/channel
 const adminUsers = process.env.ADMIN_IDS;
 
 
-console.log(getDT());
-
-
 function getDT(style = 'medium') {
   return new Intl.DateTimeFormat('en-GB', {
     dateStyle: style,
@@ -128,11 +125,11 @@ function lolsBotCheck(userId, allowReply = false, allowBan = false, ctx) {
           });
         }
 
-        // User is not banned in Lols Anti Spam, add it to the cache for 24 hours
+        // User is not banned in Lols Anti Spam, add it to the cache for X hours
         if (userBanned === false) {
           if (!cacheGet) { // If user is NOT in cache - add it
             let obj = { "added": getDT('long'), "when": "", "scammer": false, "spammer": false };
-            success = cache.set(userId, obj, '24h');
+            success = cache.set(userId, obj);
             if (!success) {
               console.log('Cache issue', getDT(), userId, cache.keys(), cache.get(userId));
             }
@@ -275,6 +272,8 @@ bot.command('cachekeys', (ctx) => {
   isAdmin(ctx.message.from.id, ctx).then((result) => {
     if (result) {
       ctx.reply(`Keys: ${cache.keys().toString()}`);
+      console.log("\n===========");
+      console.log(getDT(), cache.keys());
     } else {
       ctx.reply(`You are not allowed to use cachekeys.`);
     }
@@ -391,6 +390,12 @@ bot.catch((err) => {
 
 
 const startBot = async () => {
+  const userCache = fs.readFileSync('cache.txt', 'utf8').replace(/[\r\n\s]+/gm, "").split(',');
+  for (userId of userCache) {
+    cache.set(Number(userId), { "added": getDT('long'), "when": "", "scammer": false, "spammer": false });
+  }
+  console.log(getDT(), cache.keys());
+
   bot.launch({allowedUpdates: ['chat_member', 'message']})
     .then(() => {
       console.log("Bot Running");
