@@ -133,14 +133,12 @@ function lolsBotCheck(userId, allowReply = false, allowBan = false, ctx) {
           if (!cacheGet) { // If user is NOT in cache - add it
             let obj = { "added": getDT('long'), "when": "", "scammer": false, "spammer": false };
             success = cache.set(userId, obj, '24h');
-            if (success) {
-              console.log('Cache OK', getDT(), userId, cache.keys(), cache.get(userId));
-            } else {
-              console.error('Cache issue', getDT(), userId);
+            if (!success) {
+              console.log('Cache issue', getDT(), userId, cache.keys(), cache.get(userId));
             }
           }
           // console.log('LolsBot, cacheKeys2:', getDT(), cache.keys());
-          // Otherwise doing nothing (user cache will be cleared in 24 hours)
+          // Otherwise doing nothing (user cache will be cleared automatically)
         }
 
       }
@@ -349,7 +347,7 @@ bot.command('start', (ctx) => {
 
 
 bot.on('message', (ctx) => {
-  // if (ctx.message.left_chat_member || ctx.message.new_chat_member) { return false; }
+  if (ctx.message.left_chat_member || ctx.message.new_chat_member) { return false; }
 
   const userId = ctx.message.from.id;
 
@@ -371,23 +369,18 @@ bot.on("chat_member", (ctx) => {
   const userId = chatMember?.new_chat_member?.user?.id;
   const userFirstName = chatMember?.new_chat_member?.user?.first_name;
   const userUsername = chatMember?.new_chat_member?.user?.username ?? 'Unknown';
-  const userStatus = chatMember?.new_chat_member?.status;
-  const userChatId = chatMember?.chat?.id;
+  const userStatus = (chatMember?.new_chat_member?.status == 'member') ? 'joined' : 'left';
 
-  if (userStatus == 'member'){
+  console.log("\n===========");
+  console.log(`User:${userFirstName} (Id:${userId},Username:${userUsername},Status:${userStatus}) ${userStatus} the ${chatId} chat.\nctx.message: ${JSON.stringify(chatMember)}`);
 
-    lolsBotCheck(userId, false, true, ctx);
+  lolsBotCheck(userId, false, true, ctx);
 
-    if (bannedUsers.includes(userId)) {
-      ctx.telegram.kickChatMember(userChatId, userId);
-      ctx.reply(`User:${userFirstName} (Id:${userId},Username:${userUsername}) has been banned and marked as Scam.`);
-      console.log("\n===========");
-      console.log(`User:${userFirstName} (Id:${userId},Username:${userUsername},Status:${userStatus}) has been banned and marked as Scam in the ${userChatId} chat.\nctx.message: ${JSON.stringify(chatMember)}`);
-    } else{
-      console.log("\n===========");
-      console.log(`User:${userFirstName} (Id:${userId},Username:${userUsername},Status:${userStatus}) added to the ${userChatId} chat.\nctx.message: ${JSON.stringify(chatMember)}`);
-    }
-
+  if (bannedUsers.includes(userId)) {
+    ctx.telegram.kickChatMember(chatId, userId);
+    ctx.reply(`User:${userFirstName} (Id:${userId},Username:${userUsername}) has been banned and marked as Scam.`);
+    console.log("\n===========");
+    console.log(`User:${userFirstName} (Id:${userId},Username:${userUsername},Status:${userStatus}) has been banned and marked as Scam in the ${chatId} chat.\nctx.message: ${JSON.stringify(chatMember)}`);
   }
 });
 
