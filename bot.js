@@ -53,7 +53,7 @@ function checkUserId(userId, ctx) {
 }
 
 
-function lolsBotCheck(userId, allowReply = false, allowBan = false, ctx) {
+function lolsBotCheck(userId, userStatus = '', allowReply = false, allowBan = false, ctx) {
   https.get(`https://api.lols.bot/account?id=${userId}`, res => {
     let data = [];
 
@@ -82,8 +82,11 @@ function lolsBotCheck(userId, allowReply = false, allowBan = false, ctx) {
           ctx.reply(`LolsBot check: User:${userId} Banned:${userBanned} SpamFactor:${userSpamFactor} Scammer:${userScammer}`);
         }
 
-        // Notify group about Scammer
-        if (userScammer) {
+        // Notify group about Scammer:
+        // Send the message ONLY if user left the group (i.e. either bot kicked him out, or if user left the group himself).
+        // If the user is in the cache (at the time of adding there he was fluffy bunny, not a scammer) and sends a message
+        // ALREADY being a scammer - the bot will kick him out (i.e. again 'left' group).
+        if (userScammer && userStatus == 'left') {
           const from = ctx.update?.message?.from ?? ctx.update?.chat_member?.from;
           const fromId = from.id ?? '';
           let fromFirstName = from.first_name ?? '';
@@ -256,7 +259,7 @@ bot.command('checkuser', (ctx) => {
       const userId = ctx.args[0];
       if (!checkUserId(userId, ctx)) { return false; }
 
-      lolsBotCheck(userId, true, false, ctx);
+      lolsBotCheck(userId, '', true, false, ctx);
       
     } else {
       ctx.reply(`You are not allowed to use checkuser.`);
@@ -301,7 +304,7 @@ bot.command('cachevalues', (ctx) => {
 bot.command('getcache', (ctx) => {
   isAdmin(ctx.message.from.id, ctx).then((result) => {
     if (result) {
-      ctx.reply(`Cache: ${cache.getcache()}`);
+      ctx.reply(`Cache: ${cache.getcache()}`.substring(0,4096));
     } else {
       ctx.reply(`You are not allowed to use getcache.`);
     }
@@ -356,7 +359,7 @@ bot.on('message', (ctx) => {
       return false;
     }
     console.log('Message, Get:', getDT(), userId, cache.keys(), value, cache.getTtl(userId));
-    lolsBotCheck(userId, false, true, ctx);
+    lolsBotCheck(userId, '', false, true, ctx);
   }
   console.log("\n===========");
   console.log('Message, cacheKeys:', getDT(), cache.keys());
@@ -373,7 +376,7 @@ bot.on("chat_member", (ctx) => {
   console.log("\n===========");
   console.log(`User:${userFirstName} (Id:${userId},Username:${userUsername},Status:${userStatus}) ${userStatus} the ${chatId} chat.\nctx.message: ${JSON.stringify(chatMember)}`);
 
-  lolsBotCheck(userId, false, true, ctx);
+  lolsBotCheck(userId, userStatus, false, true, ctx);
 
   if (bannedUsers.includes(userId)) {
     ctx.telegram.kickChatMember(chatId, userId);
