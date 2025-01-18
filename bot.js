@@ -87,15 +87,18 @@ function lolsBotCheck(userId, userStatus = '', allowReply = false, allowBan = fa
         // If the user is in the cache (at the time of adding there he was fluffy bunny, not a scammer) and sends a message
         // ALREADY being a scammer - the bot will kick him out (i.e. again 'left' group).
         if (userScammer && userStatus == 'left') {
-          const from = ctx.update?.message?.from ?? ctx.update?.chat_member?.from;
-          const fromId = from.id ?? '';
-          let fromFirstName = from.first_name ?? '';
-          const fromUsername = from.username ?? '';
-          if (fromUsername) {
-            fromFirstName = `${fromFirstName}\n@${fromUsername}`;
-          }
-          ctx.telegram.sendMessage(chatId, `<b>Внимание, мошенник!</b>\n${fromFirstName}\n\nИнформация:\nhttps://t.me/lolsbotcatcherbot?start=${fromId}\nhttps://t.me/scamrsalert/${userScamRsAlert}`, { parse_mode: "HTML", disable_web_page_preview: true });
+          ctx.telegram.sendMessage(chatId, `<b>Внимание, мошенник!</b>\nTelegram ID:${userId}\n\nИнформация:\nhttps://t.me/lolsbotcatcherbot?start=${userId}\nhttps://t.me/scamrsalert/${userScamRsAlert}`, { parse_mode: "HTML", disable_web_page_preview: true });
         }
+        // if (userScammer && userStatus == 'left') {
+        //   const from = ctx.update?.message?.from ?? ctx.update?.chat_member?.from;
+        //   const fromId = from.id ?? '';
+        //   let fromFirstName = from.first_name ?? '';
+        //   const fromUsername = from.username ?? '';
+        //   if (fromUsername) {
+        //     fromFirstName = `${fromFirstName}\n@${fromUsername}`;
+        //   }
+        //   ctx.telegram.sendMessage(chatId, `<b>Внимание, мошенник!</b>\n${fromFirstName}\n\nИнформация:\nhttps://t.me/lolsbotcatcherbot?start=${fromId}\nhttps://t.me/scamrsalert/${userScamRsAlert}`, { parse_mode: "HTML", disable_web_page_preview: true });
+        // }
 
         // Ban both Scammer & Spammer right away
         if (allowBan === true && userBanned === true) {
