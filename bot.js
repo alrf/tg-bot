@@ -3,7 +3,7 @@ const fs = require('fs');
 require('dotenv').config();
 const https = require('https');
 const InMemoryCache = require('./inmemorycache');
-const cache = new InMemoryCache({ defaultTtl: '60h', cleanupInterval: '10min' });
+const cache = new InMemoryCache({ defaultTtl: '168h', cleanupInterval: '10min' });
 
 
 if (!process.env.BOT_TOKEN) throw new Error('"BOT_TOKEN" env var is required!');
@@ -12,9 +12,10 @@ if (!process.env.ADMIN_IDS) throw new Error('"ADMIN_IDS" env var is required!');
 
 
 let bannedUsers;
-const bot = new Telegraf(process.env.BOT_TOKEN);
+const botToken = process.env.BOT_TOKEN;
 const chatId = process.env.CHAT_ID; // id of your group/channel
 const adminUsers = process.env.ADMIN_IDS;
+const bot = new Telegraf(botToken);
 
 
 function getDT(style = 'medium') {
@@ -23,6 +24,86 @@ function getDT(style = 'medium') {
     timeStyle: style,
     timeZone: 'Europe/Vienna',
   }).format(new Date());
+}
+
+
+function makeRequest(options = '') {
+  if (!options) {
+    return false;
+  }
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      let data = [];
+
+      res.on('data', chunk => {
+        data.push(chunk);
+      });
+
+      res.on('end', () => { // Response ended
+        // if (res.statusCode != 200) {
+        //   console.log('statusCode:', res.statusCode);
+        //   console.log('headers:', res.headers);
+        // }
+        resolve({ "statusCode": res.statusCode, "data": Buffer.concat(data).toString() });
+      });
+    });
+
+    req.on('error', (e) => {
+      console.error(e);
+      resolve({ "statusCode": 500, "data": e });
+    });
+
+    req.end();
+  });
+}
+
+
+function tgSendMessage(text = '') {
+  if (!text) {
+    return false;
+  }
+
+  text = encodeURIComponent(text);
+
+  const options = {
+    hostname: 'api.telegram.org',
+    protocol: 'https:',
+    port: 443,
+    path: `/bot${botToken}/sendMessage?chat_id=${chatId}&parse_mode=html&disable_web_page_preview=true&text=${text}`,
+    method: 'GET',
+  };
+
+  // console.log(options);
+
+  makeRequest(options);
+  // makeRequest(options)
+  // .then(r => {
+  //   console.log(r.statusCode);
+  // })
+}
+
+
+function tgBanChatMember(user_id = 0) {
+  if (user_id == 0) {
+    return false;
+  }
+
+  const options = {
+    hostname: 'api.telegram.org',
+    protocol: 'https:',
+    port: 443,
+    path: `/bot${botToken}/banChatMember?chat_id=${chatId}&user_id=${user_id}`,
+    method: 'GET',
+  };
+
+  // console.log(options);
+
+  // makeRequest(options);
+  makeRequest(options)
+  .then(r => {
+    console.log(r.statusCode, r.data);
+  });
 }
 
 
@@ -82,24 +163,6 @@ function lolsBotCheck(userId, userStatus = '', allowReply = false, allowBan = fa
           ctx.reply(`LolsBot check: User:${userId} Banned:${userBanned} SpamFactor:${userSpamFactor} Scammer:${userScammer}`);
         }
 
-        // Notify group about Scammer:
-        // Send the message ONLY if user left the group (i.e. either bot kicked him out, or if user left the group himself).
-        // If the user is in the cache (at the time of adding there he was fluffy bunny, not a scammer) and sends a message
-        // ALREADY being a scammer - the bot will kick him out (i.e. again 'left' group).
-        if (userScammer && userStatus == 'left') {
-          ctx.telegram.sendMessage(chatId, `<b>Внимание, мошенник!</b>\nTelegram ID:${userId}\n\nИнформация:\nhttps://t.me/lolsbotcatcherbot?start=${userId}\nhttps://t.me/scamrsalert/${userScamRsAlert}`, { parse_mode: "HTML", disable_web_page_preview: true });
-        }
-        // if (userScammer && userStatus == 'left') {
-        //   const from = ctx.update?.message?.from ?? ctx.update?.chat_member?.from;
-        //   const fromId = from.id ?? '';
-        //   let fromFirstName = from.first_name ?? '';
-        //   const fromUsername = from.username ?? '';
-        //   if (fromUsername) {
-        //     fromFirstName = `${fromFirstName}\n@${fromUsername}`;
-        //   }
-        //   ctx.telegram.sendMessage(chatId, `<b>Внимание, мошенник!</b>\n${fromFirstName}\n\nИнформация:\nhttps://t.me/lolsbotcatcherbot?start=${fromId}\nhttps://t.me/scamrsalert/${userScamRsAlert}`, { parse_mode: "HTML", disable_web_page_preview: true });
-        // }
-
         // Ban both Scammer & Spammer right away
         if (allowBan === true && userBanned === true) {
           new Promise((resolve, reject) => {
@@ -114,15 +177,13 @@ function lolsBotCheck(userId, userStatus = '', allowReply = false, allowBan = fa
           .then((result) => { // Promise resolved
             console.log(`LolsBot ban: Result:${result} User:${userId} Banned:${userBanned} SpamFactor:${userSpamFactor} Scammer:${userScammer}`);
 
-            // If user is in cache - update it
+            // If user is in cache - delete it
             if (cacheGet) {
               console.log('LolsBot, cacheGet:', getDT(), userId, cache.keys(), cacheGet, cache.getTtl(userId));
-              let obj = { "added": cacheGet.added, "when": userWhen, "scammer": userScammer, "spammer": userBanned };
-              success = cache.update(userId, obj);
+              const success = cache.delete(userId);
               if (success) {
-                console.log('LolsBot, cacheSet:', getDT(), userId, cache.keys(), cache.get(userId), cache.getTtl(userId));
+                console.log('LolsBot, cacheDelete:', getDT(), userId, cache.keys(), cache.get(userId), cache.getTtl(userId));
               }
-              // console.log('LolsBot, cacheKeys1:', getDT(), cache.keys());
             }
 
           })
@@ -133,15 +194,25 @@ function lolsBotCheck(userId, userStatus = '', allowReply = false, allowBan = fa
 
         // User is not banned in Lols Anti Spam, add it to the cache for X hours
         if (userBanned === false) {
-          if (!cacheGet) { // If user is NOT in cache - add it
+          // if (!cacheGet) { // If user is NOT in cache - add it
+          //   let obj = { "added": getDT('long'), "when": "", "scammer": false, "spammer": false };
+          //   const success = cache.set(userId, obj);
+          //   if (!success) {
+          //     console.log('Cache issue', getDT(), userId, cache.keys(), cache.get(userId));
+          //   }
+          // }
+          if (cacheGet && userStatus == 'left') { // Clear the cache on user left
+            const success = cache.delete(userId);
+            if (success) {
+              console.log('LolsBot, cacheDelete1:', getDT(), userId, cache.keys(), cache.get(userId), cache.getTtl(userId));
+            }
+          } else { // If user is NOT in cache - add it
             let obj = { "added": getDT('long'), "when": "", "scammer": false, "spammer": false };
-            success = cache.set(userId, obj);
+            const success = cache.set(userId, obj);
             if (!success) {
               console.log('Cache issue', getDT(), userId, cache.keys(), cache.get(userId));
             }
           }
-          // console.log('LolsBot, cacheKeys2:', getDT(), cache.keys());
-          // Otherwise doing nothing (user cache will be cleared automatically)
         }
 
       }
@@ -308,6 +379,8 @@ bot.command('getcache', (ctx) => {
   isAdmin(ctx.message.from.id, ctx).then((result) => {
     if (result) {
       ctx.reply(`Cache: ${cache.getcache()}`.substring(0,4096));
+      console.log("\n===========");
+      console.log(getDT(), cache.getcache());
     } else {
       ctx.reply(`You are not allowed to use getcache.`);
     }
@@ -395,12 +468,62 @@ bot.catch((err) => {
 });
 
 
+function checkScammer() {
+  setInterval(() => {
+
+    const cacheKeys = cache.keys();
+    const targetUserIds = new Set(cacheKeys);
+
+    console.log(getDT(), cacheKeys);
+    console.log("==========checkScammer========\n");
+
+    const options = {
+      hostname: 'lols.bot',
+      protocol: 'https:',
+      port: 443,
+      path: '/scammers.json',
+      method: 'GET',
+    };
+
+    makeRequest(options)
+    .then(r => {
+      fs.writeFileSync('/tmp/scammers.json', JSON.stringify(JSON.parse(r.data)));
+      // console.log(r.statusCode);
+    });
+
+    let scammers = [];
+    try {
+      scammers = JSON.parse(fs.readFileSync('/tmp/scammers.json', 'utf8'));
+    } catch (e) {
+      console.error('Invalid JSON file!');
+    }
+
+    for (const scammer of scammers) {
+      if (targetUserIds.has(scammer.user_id)) {
+        if (scammer.updated) {
+          const usernames = scammer.usernames.length ? `<b>Username</b>: ${scammer.usernames.join(', ')}\n` : '';
+          const text = `<b>Внимание, мошенник!</b>\n\n<b>Name</b>: ${scammer.names.join(', ')}\n${usernames}\nИнформация:\nhttps://t.me/lolsbotcatcherbot?start=${scammer.user_id}\nhttps://t.me/scamrsalert/${scammer.postid}`;
+          tgSendMessage(text);
+          console.log(scammer);
+          tgBanChatMember(scammer.user_id);
+          cache.delete(Number(scammer.user_id));
+        }
+      }
+    }
+
+  }, 10 * 60 * 1000); // 10 minutes in ms
+}
+
+
 const startBot = async () => {
   const userCache = fs.readFileSync('cache.txt', 'utf8').replace(/[\r\n\s]+/gm, "").split(',');
-  for (userId of userCache) {
+  for (const userId of userCache) {
     cache.set(Number(userId), { "added": getDT('long'), "when": "", "scammer": false, "spammer": false });
   }
   console.log(getDT(), cache.keys());
+
+  // Notify group about Scammer
+  checkScammer();
 
   bot.launch({allowedUpdates: ['chat_member', 'message']})
     .then(() => {
