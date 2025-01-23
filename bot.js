@@ -485,18 +485,18 @@ function checkScammer() {
       method: 'GET',
     };
 
+    let scammers = [];
+
     makeRequest(options)
     .then(r => {
       fs.writeFileSync('/tmp/scammers.json', JSON.stringify(JSON.parse(r.data)));
       // console.log(r.statusCode);
+      try {
+        scammers = JSON.parse(fs.readFileSync('/tmp/scammers.json', 'utf8'));
+      } catch (e) {
+        console.error(getDT(), 'Invalid JSON file!');
+      }
     });
-
-    let scammers = [];
-    try {
-      scammers = JSON.parse(fs.readFileSync('/tmp/scammers.json', 'utf8'));
-    } catch (e) {
-      console.error(getDT(), 'Invalid JSON file!');
-    }
 
     for (const scammer of scammers) {
       if (targetUserIds.has(scammer.user_id)) {
