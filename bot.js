@@ -474,8 +474,8 @@ function checkScammer() {
     const cacheKeys = cache.keys();
     const targetUserIds = new Set(cacheKeys);
 
-    console.log(getDT(), cacheKeys);
-    console.log("==========checkScammer========\n");
+    console.log("\n=========checkScammer=========");
+    console.log(getDT(), `Cache size:${cacheKeys.length}`);
 
     const options = {
       hostname: 'lols.bot',
@@ -495,7 +495,7 @@ function checkScammer() {
     try {
       scammers = JSON.parse(fs.readFileSync('/tmp/scammers.json', 'utf8'));
     } catch (e) {
-      console.error('Invalid JSON file!');
+      console.error(getDT(), 'Invalid JSON file!');
     }
 
     for (const scammer of scammers) {
@@ -512,6 +512,7 @@ function checkScammer() {
     }
 
   }, 10 * 60 * 1000); // 10 minutes in ms
+  // }, 5000);
 }
 
 
