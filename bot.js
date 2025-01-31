@@ -3,7 +3,7 @@ const fs = require('fs');
 require('dotenv').config();
 const https = require('https');
 const InMemoryCache = require('./inmemorycache');
-const cache = new InMemoryCache({ defaultTtl: '120h', cleanupInterval: '10min' });
+const cache = new InMemoryCache({ defaultTtl: '96h', cleanupInterval: '10min' });
 
 
 if (!process.env.BOT_TOKEN) throw new Error('"BOT_TOKEN" env var is required!');
@@ -216,10 +216,12 @@ function lolsBotCheck(userId, userStatus = '', allowReply = false, allowBan = fa
           //     console.log('Cache issue', getDT(), userId, cache.keys(), cache.get(userId));
           //   }
           // }
-          if (cacheGet && userStatus == 'left') { // Clear the cache on user left
-            const success = cache.delete(userId);
-            if (success) {
-              console.log('LolsBot, cacheDelete1:', getDT(), userId, cache.keys(), cache.get(userId), cache.getTtl(userId));
+          if (cacheGet) { // User in cache
+            if (userStatus == 'left') { // Clear the cache on user left
+              const success = cache.delete(userId);
+              if (success) {
+                console.log('LolsBot, cacheDelete1:', getDT(), userId, cache.keys(), cache.get(userId), cache.getTtl(userId));
+              }
             }
           } else { // If user is NOT in cache - add it
             let obj = { "added": getDT('long'), "when": "", "scammer": false, "spammer": false };
