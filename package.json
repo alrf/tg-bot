@@ -1,6 +1,6 @@
 {
   "name": "tg-bot",
-  "version": "2.5.1",
+  "version": "2.5.2",
   "description": "",
   "main": "bot.js",
   "scripts": {

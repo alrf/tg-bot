@@ -408,6 +408,27 @@ bot.command('getcache', (ctx) => {
 });
 
 
+bot.command('getkeysadded', (ctx) => {
+  isAdmin(ctx.message.from.id, ctx).then((result) => {
+    if (result) {
+      console.log("\n===========");
+      console.log(getDT());
+      let str = '';
+      for (const [key, obj] of Object.entries(JSON.parse(cache.getcache()))) {
+        console.log(`${key}: ${obj.value.added}`);
+        str += `${key}: ${obj.value.added}\n`;
+      }
+      ctx.reply(str.substring(0,4096));
+    } else {
+      ctx.reply(`You are not allowed to use getkeysadded.`);
+    }
+  })
+  .catch((error) => {
+    ctx.reply("Error: " + JSON.stringify(error));
+  });
+});
+
+
 bot.command('list', (ctx) => {
   isAdmin(ctx.message.from.id, ctx).then((result) => {
     if (result) {
@@ -517,9 +538,10 @@ function checkScammer() {
       for (const scammer of scammers) {
         if (targetUserIds.has(scammer.user_id)) {
           const usernames = scammer.usernames.length ? `<b>Username</b>: ${scammer.usernames.join(', ')}\n` : '';
-          const postid = scammer.postid ? `https://t.me/scamrsalert/${scammer.postid}` : '';
+          const postid = scammer.postid ? `Информация:\nhttps://t.me/scamrsalert/${scammer.postid}` : '';
           const header = scammer.postid ? '<b>Внимание, мошенник!</b>' : '<b>Внимание, <i>возможно</i> мошенник!</b>';
-          const text = `${header}\n\n<b>Name</b>: ${scammer.names.join(', ')}\n${usernames}\nИнформация:\nhttps://t.me/lolsbotcatcherbot?start=${scammer.user_id}\n${postid}`;
+          // const text = `${header}\n\n<b>Name</b>: ${scammer.names.join(', ')}\n${usernames}\nИнформация:\nhttps://t.me/lolsbotcatcherbot?start=${scammer.user_id}\n${postid}`;
+          const text = `${header}\n\n<b>Name</b>: ${scammer.names.join(', ')}\n${usernames}\n${postid}`;
           tgSendMessage(text);
           console.log(scammer);
           cache.delete(Number(scammer.user_id));
