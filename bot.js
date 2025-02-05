@@ -18,12 +18,12 @@ const adminUsers = process.env.ADMIN_IDS;
 const bot = new Telegraf(botToken);
 
 
-function getDT(style = 'medium') {
+function getDT(style = 'medium', date = new Date()) {
   return new Intl.DateTimeFormat('en-GB', {
     dateStyle: style,
     timeStyle: style,
     timeZone: 'Europe/Vienna',
-  }).format(new Date());
+  }).format(date);
 }
 
 
@@ -189,11 +189,13 @@ function lolsBotCheck(userId, userStatus = '', allowReply = false, allowBan = fa
 
             // If user is in cache - update it
             if (cacheGet) {
-              console.log('LolsBot, cacheGet:', getDT(), userId, cache.keys(), cacheGet, cache.getTtl(userId));
+              // console.log('LolsBot, cacheGet:', getDT(), userId, cache.keys(), cacheGet, cache.getTtl(userId));
+              console.log('LolsBot, cacheGet:', getDT(), userId, cacheGet, cache.getTtl(userId));
               let obj = { "added": cacheGet.added, "when": userWhen, "scammer": userScammer, "spammer": userBanned };
               const success = cache.update(userId, obj);
               if (success) {
-                console.log('LolsBot, cacheUpdate:', getDT(), userId, cache.keys(), cache.get(userId), cache.getTtl(userId));
+                // console.log('LolsBot, cacheUpdate:', getDT(), userId, cache.keys(), cache.get(userId), cache.getTtl(userId));
+                console.log('LolsBot, cacheUpdate:', getDT(), userId, cache.get(userId), cache.getTtl(userId));
               }
               // const success = cache.delete(userId);
               // if (success) {
@@ -210,7 +212,7 @@ function lolsBotCheck(userId, userStatus = '', allowReply = false, allowBan = fa
         // User is not banned in Lols Anti Spam, add it to the cache for X hours
         if (userBanned === false) {
           // if (!cacheGet) { // If user is NOT in cache - add it
-          //   let obj = { "added": getDT('long'), "when": "", "scammer": false, "spammer": false };
+          //   let obj = { "added": getDT(), "when": "", "scammer": false, "spammer": false };
           //   const success = cache.set(userId, obj);
           //   if (!success) {
           //     console.log('Cache issue', getDT(), userId, cache.keys(), cache.get(userId));
@@ -224,7 +226,7 @@ function lolsBotCheck(userId, userStatus = '', allowReply = false, allowBan = fa
               }
             }
           } else { // If user is NOT in cache - add it
-            let obj = { "added": getDT('long'), "when": "", "scammer": false, "spammer": false };
+            let obj = { "added": getDT(), "when": "", "scammer": false, "spammer": false };
             const success = cache.set(userId, obj);
             if (!success) {
               console.log('Cache issue', getDT(), userId, cache.keys(), cache.get(userId));
@@ -413,12 +415,10 @@ bot.command('getkeysadded', (ctx) => {
     if (result) {
       console.log("\n===========");
       console.log(getDT());
-      let str = '';
-      for (const [key, obj] of Object.entries(JSON.parse(cache.getcache()))) {
-        console.log(`${key}: ${obj.value.added}`);
-        str += `${key}: ${obj.value.added}\n`;
-      }
-      ctx.reply(str.substring(0,4096));
+      const sortedEntries = Object.entries(JSON.parse(cache.getcache())).map(([key, { value }]) => ({ key, added: new Date(value.added) })).sort((a, b) => b.added - a.added);
+      const resultString = sortedEntries.map(({ key, added }) => `${key}: ${getDT('medium', added)}`).join("\n");
+      console.log(JSON.stringify(Object.fromEntries(sortedEntries.map(({ key, added }) => [key, getDT('medium', added)])), null, 2));
+      ctx.reply(resultString.substring(0,4096));
     } else {
       ctx.reply(`You are not allowed to use getkeysadded.`);
     }
@@ -472,11 +472,12 @@ bot.on('message', (ctx) => {
     if (value.scammer === true || value.spammer === true) { // the user has already been processed
       return false;
     }
-    console.log('Message, Get:', getDT(), userId, cache.keys(), value, cache.getTtl(userId));
+    // console.log('Message, Get:', getDT(), userId, cache.keys(), value, cache.getTtl(userId));
+    console.log('Message, Get:', getDT(), userId, value, cache.getTtl(userId));
     lolsBotCheck(userId, '', false, true, ctx);
   }
-  console.log("\n===========");
-  console.log('Message, cacheKeys:', getDT(), cache.keys());
+  // console.log("\n===========");
+  // console.log('Message, cacheKeys:', getDT(), cache.keys());
 });
 
 
@@ -556,9 +557,9 @@ function checkScammer() {
 
 
 const startBot = async () => {
-  const userCache = fs.readFileSync('cache.txt', 'utf8').replace(/[\r\n\s]+/gm, "").split(',');
-  for (const userId of userCache) {
-    cache.set(Number(userId), { "added": getDT('long'), "when": "", "scammer": false, "spammer": false });
+  const userCache = JSON.parse(fs.readFileSync('cache.json', 'utf8'));
+  for(const userId in userCache){
+    cache.set(Number(userId), { "added": userCache[userId], "when": "", "scammer": false, "spammer": false });
   }
   console.log(getDT(), cache.keys());
 
