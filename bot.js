@@ -284,8 +284,12 @@ bot.command('ban', (ctx) => {
         .then((result) => { // Promise resolved
           bannedUsers.push(userId);
           writeScamUsersId(bannedUsers);
-          ctx.reply(`User ${userId} has been banned and added to the Scam list.`);
-          console.log(chatId, result, bannedUsers);
+          ctx.reply(`User ${userId} has been banned.`);
+          // console.log(chatId, result, bannedUsers);
+          if (cache.get(Number(userId))) {
+            cache.delete(Number(userId));
+            console.log(`User ${userId} has been banned.`);
+          }
         })
         .catch((error) => { // Promise rejected
           console.error(JSON.stringify(error));
@@ -293,10 +297,10 @@ bot.command('ban', (ctx) => {
         });
 
       } else {
-        ctx.reply(`User ${userId} is already in the Scam list.`);
+        ctx.reply(`User ${userId} is already banned.`);
       }
     } else {
-      ctx.reply("You are not allowed to add users to the Scam list.");
+      ctx.reply("You are not allowed to ban users.");
     }
   })
   .catch((error) => {
@@ -337,7 +341,7 @@ bot.command('unban', (ctx) => {
       //   ctx.reply(`User ${userId} was not found in the Scam list.`);
       // }
     } else {
-      ctx.reply("You are not allowed to remove users from the Scam list.");
+      ctx.reply("You are not allowed to unban users.");
     }
   })
   .catch((error) => {
