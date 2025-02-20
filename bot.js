@@ -189,12 +189,11 @@ function lolsBotCheck(userId, userStatus = '', allowReply = false, allowBan = fa
 
             // If user is in cache - update it
             if (cacheGet) {
-              // console.log('LolsBot, cacheGet:', getDT(), userId, cache.keys(), cacheGet, cache.getTtl(userId));
               console.log('LolsBot, cacheGet:', getDT(), userId, cacheGet, cache.getTtl(userId));
+              // Don't delete the user from the cache as it is needed for scam checking
               let obj = { "added": cacheGet.added, "when": userWhen, "scammer": userScammer, "spammer": userBanned };
               const success = cache.update(userId, obj);
               if (success) {
-                // console.log('LolsBot, cacheUpdate:', getDT(), userId, cache.keys(), cache.get(userId), cache.getTtl(userId));
                 console.log('LolsBot, cacheUpdate:', getDT(), userId, cache.get(userId), cache.getTtl(userId));
               }
               // const success = cache.delete(userId);
