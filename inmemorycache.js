@@ -63,6 +63,21 @@ module.exports = class InMemoryCache {
     }
   }
 
+  // Method for deleting record
+  delete(key) {
+    const cacheEntry = this.cache.get(key);
+
+    if (cacheEntry) {
+      try {
+        this.cache.delete(key);
+        return true;
+      } catch (error) {
+        return false;
+      }
+    }
+    return false;
+  }
+
   // Method for updating record without changing TTL
   update(key, value) {
     const cacheEntry = this.cache.get(key);
