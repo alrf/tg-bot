@@ -543,7 +543,8 @@ function checkScammer() {
         if (targetUserIds.has(scammer.user_id)) {
           const usernames = scammer.usernames.length ? `<b>Username</b>: ${scammer.usernames.join(', ')}\n` : '';
           const postid = scammer.postid ? `Информация:\nhttps://t.me/scamrsalert/${scammer.postid}` : '';
-          const header = scammer.postid ? '<b>Внимание, мошенник!</b>' : '<b>Внимание, <i>возможно</i> мошенник!</b>';
+          // const header = scammer.postid ? '<b>Внимание, мошенник!</b>' : '<b>Внимание, <i>возможно</i> мошенник!</b>';
+          const header = '<b>Внимание, мошенник!</b>';
           // const text = `${header}\n\n<b>Name</b>: ${scammer.names.join(', ')}\n${usernames}\nИнформация:\nhttps://t.me/lolsbotcatcherbot?start=${scammer.user_id}\n${postid}`;
           const text = `${header}\n\n<b>Name</b>: ${scammer.names.join(', ')}\n${usernames}\n${postid}`;
           tgSendMessage(text);
