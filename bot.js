@@ -597,7 +597,7 @@ const startBot = async () => {
   // Notify group about Scammer
   checkScammer();
 
-  bot.launch({allowedUpdates: ['chat_member', 'message']})
+  bot.launch({allowedUpdates: ['chat_member', 'message', 'chat_join_request']})
     .then(() => {
       console.log("Bot Running");
     })
