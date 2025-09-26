@@ -126,8 +126,8 @@ function isAdmin(IdOfUser, ctx) {
 
 
 function checkUserId(userId, ctx) {
-  if (userId === undefined || !userId.match(/^\d{10}$/) || adminUsers.includes(userId)) {
-    ctx.reply(`/${ctx.command} <Telegram ID> (a 10 digit number) must be used.`);
+  if (userId === undefined || !userId.match(/^\d{7,10}$/) || adminUsers.includes(userId)) {
+    ctx.reply(`/${ctx.command} <Telegram ID> (from 7 to 10 digit number) must be used.`);
     return false;
   }
   return true;
@@ -175,6 +175,13 @@ function lolsBotCheck(userId, userStatus = '', allowReply = false, allowBan = fa
 
         // Ban both Scammer & Spammer right away
         if (allowBan === true && userBanned === true) {
+
+          if (userStatus == 'join_request') { // join request
+            ctx.telegram.declineChatJoinRequest(chatId, userId);
+            console.log(`JoinRequest declined: User:${userId}`);
+            return;
+          }
+
           new Promise((resolve, reject) => {
             ctx.telegram.kickChatMember(chatId, userId)
             .then((result) => {
@@ -210,6 +217,13 @@ function lolsBotCheck(userId, userStatus = '', allowReply = false, allowBan = fa
 
         // User is not banned in Lols Anti Spam, add it to the cache for X hours
         if (userBanned === false) {
+
+          if (userStatus == 'join_request') { // join request
+            ctx.telegram.approveChatJoinRequest(chatId, userId);
+            console.log(`JoinRequest approved: User:${userId}`);
+            return;
+          }
+
           // if (!cacheGet) { // If user is NOT in cache - add it
           //   let obj = { "added": getDT(), "when": "", "scammer": false, "spammer": false };
           //   const success = cache.set(userId, obj);
@@ -356,7 +370,7 @@ bot.command('checkuser', (ctx) => {
       if (!checkUserId(userId, ctx)) { return false; }
 
       lolsBotCheck(userId, '', true, false, ctx);
-      
+
     } else {
       ctx.reply(`You are not allowed to use checkuser.`);
     }
@@ -502,6 +516,19 @@ bot.on("chat_member", (ctx) => {
     console.log("\n===========");
     console.log(`User:${userFirstName} (Id:${userId},Username:${userUsername},Status:${userStatus}) has been banned and marked as Scam in the ${chatId} chat.\nctx.message: ${JSON.stringify(chatMember)}`);
   }
+});
+
+
+bot.on('chat_join_request', (ctx) => {
+  const joinReq = ctx.update.chat_join_request;
+  const userId = joinReq.from.id;
+  const userFirstName = joinReq.from.first_name;
+  const userUsername = joinReq.from.username ?? 'Unknown';
+
+  console.log("\n===========");
+  console.log(`JoinRequest: User:${userFirstName} (Id:${userId}, Username:${userUsername})`);
+
+  lolsBotCheck(userId, 'join_request', false, true, ctx);
 });
 
 
