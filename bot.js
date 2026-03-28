@@ -176,6 +176,13 @@ function lolsBotCheck(userId, userStatus = '', allowReply = false, allowBan = fa
         // Ban both Scammer & Spammer right away
         if (allowBan === true && userBanned === true) {
 
+          // Delete the user's last message before banning
+          if (ctx.message && ctx.message.message_id) {
+            ctx.telegram.deleteMessage(chatId, ctx.message.message_id)
+              .then(() => console.log(`Message deleted: User:${userId} Msg:${ctx.message.message_id}`))
+              .catch(err => console.error(`Delete message error: User:${userId} ${err}`));
+          }
+
           if (userStatus == 'join_request') { // join request
             ctx.telegram.declineChatJoinRequest(chatId, userId);
             console.log(`JoinRequest declined: User:${userId}`);
