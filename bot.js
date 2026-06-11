@@ -491,6 +491,10 @@ bot.on('message', (ctx) => {
 
   const userId = ctx.message.from.id;
 
+  console.log("\n=====DEBUG======");
+  console.log(getDT(), ctx.message);
+  console.log("\n=====END DEBUG======");
+
   value = cache.get(userId);
   if (value){ // there's a value in the cache for the user (i.e. it was recently added to the cache)
     if (value.scammer === true || value.spammer === true) { // the user has already been processed
